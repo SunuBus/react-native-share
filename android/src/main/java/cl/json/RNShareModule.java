@@ -1,14 +1,24 @@
 package cl.json;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ActivityNotFoundException;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.support.annotation.Nullable;
+import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
+
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.ReadableNativeMap;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableNativeMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.sql.SQLOutput;
 import java.util.ArrayList;
@@ -70,6 +80,10 @@ public class RNShareModule extends ReactContextBaseJavaModule {
     public RNShareModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
+        ShareBroadcastReceiver receiver = new ShareBroadcastReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("cl.json.intent.SHARE");
+        reactContext.registerReceiver(receiver, filter);
     }
 
     @Override
@@ -156,6 +170,18 @@ public class RNShareModule extends ReactContextBaseJavaModule {
             System.out.println("ERROR");
             System.out.println(e.getMessage());
             failureCallback.invoke(e.getMessage());
+        }
+    }
+
+    public class ShareBroadcastReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String selectedAppPackage = String.valueOf(intent.getExtras().get(Intent.EXTRA_CHOSEN_COMPONENT));
+            Log.d(RNShareModule.class.getName(), "User chose to share with " + selectedAppPackage);
+            WritableNativeMap eventData = new WritableNativeMap();
+            eventData.putString("selectedAppPackage", selectedAppPackage);
+            reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("rnshare.shared", eventData);
         }
     }
 }

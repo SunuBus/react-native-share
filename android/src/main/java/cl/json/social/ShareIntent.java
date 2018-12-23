@@ -1,22 +1,33 @@
 package cl.json.social;
 
+import android.annotation.TargetApi;
+import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.content.pm.ResolveInfo;
 import android.content.ComponentName;
+import android.util.Log;
 
+import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableNativeMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 
+import cl.json.RNShareModule;
 import cl.json.ShareFile;
 import cl.json.ShareFiles;
 
@@ -130,8 +141,20 @@ public abstract class ShareIntent {
 
         return extraIntents;
     }
+
+    @TargetApi(22)
     protected void openIntentChooser() throws ActivityNotFoundException {
-        Intent chooser = Intent.createChooser(this.getIntent(), this.chooserTitle);
+        Intent chooser;
+        if (Build.VERSION.SDK_INT >= 22) {
+            Intent receiver = new Intent("cl.json.intent.SHARE");
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(this.reactContext, 0, receiver, PendingIntent.FLAG_UPDATE_CURRENT);
+            chooser = Intent.createChooser(this.getIntent(), this.chooserTitle, pendingIntent.getIntentSender());
+        } else {
+            Log.w(RNShareModule.class.getName(), "On Android API level < 22, it is not possible to know when the user selects an app in the activity chooser");
+            chooser = Intent.createChooser(this.getIntent(), this.chooserTitle);
+            WritableNativeMap eventData = new WritableNativeMap();
+            reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("rnshare.shared", eventData);
+        }
         chooser.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         if (ShareIntent.hasValidKey("showAppsToView", options) && ShareIntent.hasValidKey("url", options)) {
